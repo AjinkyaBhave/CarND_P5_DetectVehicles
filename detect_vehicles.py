@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from sklearn.externals import joblib
 from classify_vehicles import *
 
 # Define a function to extract features from a single image window
@@ -118,51 +119,60 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
                    pix_per_cell=8, cell_per_block=2,
                    hog_channel=0, spatial_feat=True,
                    hist_feat=True, hog_feat=True):
-    # 1) Create an empty list to receive positive detection windows
+    # Create an empty list to receive positive detection windows
     on_windows = []
-    # 2) Iterate over all windows in the list
+    # Iterate over all windows in the list
     for window in windows:
-        # 3) Extract the test window from original image
+        # Extract the test window from original image
         test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))
-        # 4) Extract features for that window using single_img_features()
+        # Extract features for that window using single_img_features()
         features = single_img_features(test_img, color_space=color_space,
                                        spatial_size=spatial_size, hist_bins=hist_bins,
                                        orient=orient, pix_per_cell=pix_per_cell,
                                        cell_per_block=cell_per_block,
                                        hog_channel=hog_channel, spatial_feat=spatial_feat,
                                        hist_feat=hist_feat, hog_feat=hog_feat)
-        # 5) Scale extracted features to be fed to classifier
+        # Scale extracted features to be fed to classifier
         test_features = scaler.transform(np.array(features).reshape(1, -1))
-        # 6) Predict using your classifier
+        # Predict using your classifier
         prediction = clf.predict(test_features)
-        # 7) If positive (prediction == 1) then save the window
+        # If positive (prediction == 1) then save the window
         if prediction == 1:
             on_windows.append(window)
-    # 8) Return windows for positive detections
+    # Return windows for positive detections
     return on_windows
 
 
-img = cv2.imread('bbox-example-image.jpg')
-img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-draw_image = np.copy(img)
+if __name__ == '__main__':
+    img = cv2.imread('./test_images/test4.jpg')
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    draw_image = np.copy(img)
 
-# Uncomment the following line if you extracted training
-# data from .png images (scaled 0 to 1 by mpimg) and the
-# image you are searching is a .jpg (scaled 0 to 255)
-# image = image.astype(np.float32)/255
+    # Load pre-trained SVM classifier model
+    svc = joblib.load(svm_model_path)
+    # Fit a per-column scaler
+    X_scaler = joblib.load(scaler_model_path)
+    print('Load SVM and Scaler')
 
-windows = slide_window(img, x_start_stop=[None, None], y_start_stop=y_start_stop,
-                       xy_window=(96, 96), xy_overlap=(0.5, 0.5))
+    # Uncomment the following line if you extracted training
+    # data from .png images (scaled 0 to 1 by mpimg) and the
+    # image you are searching is a .jpg (scaled 0 to 255)
+    # image = image.astype(np.float32)/255
+    y_start_stop = [470, None]  # Min and max in y to search in slide_window()
 
-hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space,
-                             spatial_size=spatial_size, hist_bins=hist_bins,
-                             orient=orient, pix_per_cell=pix_per_cell,
-                             cell_per_block=cell_per_block,
-                             hog_channel=hog_channel, spatial_feat=spatial_feat,
-                             hist_feat=hist_feat, hog_feat=hog_feat)
+    windows = slide_window(img, x_start_stop=[None, None], y_start_stop=y_start_stop,
+                           xy_window=(96, 96), xy_overlap=(0.5, 0.5))
 
-window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+    hot_windows = search_windows(img, windows, svc, X_scaler, color_space=color_space,
+                                 spatial_size=spatial_size, hist_bins=hist_bins,
+                                 orient=orient, pix_per_cell=pix_per_cell,
+                                 cell_per_block=cell_per_block,
+                                 hog_channel=hog_channel, spatial_feat=spatial_feat,
+                                 hist_feat=hist_feat, hog_feat=hog_feat)
 
-plt.imshow(window_img)
+    window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+    print('Finished detect')
+    plt.imshow(window_img)
+    plt.show()
 
 
