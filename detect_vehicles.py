@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from sklearn.externals import joblib
 from classify_vehicles import *
+from scipy.ndimage.measurements import label
 
 # Define a function to extract features from a single image window
 # This function is very similar to extract_features()
@@ -112,7 +113,8 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     # Iterate over all windows in the list
     for window in windows:
         # Extract the test window from original image
-        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (train_img_width, train_img_height))
+        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]],
+                              (train_img_height, train_img_width))
         # Extract features for that window using single_img_features()
         features = single_img_features(test_img, color_space=color_space,
                                        spatial_size=spatial_size, hist_bins=hist_bins,
@@ -130,21 +132,55 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     # Return windows for positive detections
     return on_windows
 
+def create_heatmap(heatmap, bbox_list):
+    # Iterate through list of bboxes
+    for box in bbox_list:
+        # Add += 1 for all pixels inside each bbox
+        # Assuming each "box" takes the form ((x1, y1), (x2, y2))
+        heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
+        # Zero out pixels below the threshold
+    heatmap[heatmap < heat_thresh] = 0
+    # Return updated heatmap
+    return heatmap
+
 # Define a function to draw bounding boxes
-def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
-    # Make a copy of the image
-    imcopy = np.copy(img)
+def draw_boxes(img_draw, bboxes, color=(0, 0, 255), thick=3):
     # Iterate through the bounding boxes
     for bbox in bboxes:
         # Draw a rectangle given bbox coordinates
-        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
+        cv2.rectangle(img_draw, bbox[0], bbox[1], color, thick)
     # Return the image copy with boxes drawn
-    return imcopy
+    return img_draw
+
+def draw_labeled_boxes(img_draw, labels):
+    # Iterate through all detected cars
+    for car_number in range(1, labels[1]+1):
+        # Find pixels with each car_number label value
+        nonzero = (labels[0] == car_number).nonzero()
+        # Identify x and y values of those pixels
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+        # Define a bounding box based on min/max x and y
+        bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
+        # Draw the box on the image
+        cv2.rectangle(img_draw, bbox[0], bbox[1], (0,0,255), 3)
+    # Return the image
+    return img_draw
 
 if __name__ == '__main__':
+    x_start_stop = [0, 1200]  # Min and max in y to search in slide_window()
+    y_start_stop = [500, 656]  # Min and max in y to search in slide_window()
+    win_scales = [1, 2, 2.5]
+    all_detected_windows = []
+
     img = cv2.imread('./test_images/bbox-example-image.jpg')
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    draw_image = np.copy(img)
+    # Image copy to draw detected vehicle boxes
+    img_draw = np.copy(img)
+    # Heat map to combine multiple scale detections
+    img_heat = np.zeros_like(img[:, :, 0]).astype(np.float)
+    # Minumum number of times a pixel is present in a bounding box set to accept detection
+    heat_thresh = 1
 
     # Load pre-trained SVM classifier model
     svc = joblib.load(svm_model_path)
@@ -156,10 +192,7 @@ if __name__ == '__main__':
     # data from .png images (scaled 0 to 1 by mpimg) and the
     # image you are searching is a .jpg (scaled 0 to 255)
     # image = image.astype(np.float32)/255
-    x_start_stop = [0, 1200]  # Min and max in y to search in slide_window()
-    y_start_stop = [470, 656]  # Min and max in y to search in slide_window()
-    win_scales = [1, 2, 2.5]
-    all_detected_windows = []
+
     t1 = time.time()
 
     for scale in win_scales:
@@ -175,13 +208,27 @@ if __name__ == '__main__':
                                      hog_channel=hog_channel, spatial_feat=spatial_feat,
                                      hist_feat=hist_feat, hog_feat=hog_feat)
         all_detected_windows.extend(detected_windows)
-        #plt.imshow(draw_img)
-        #plt.show()
+
+    img_heat=create_heatmap(img_heat,all_detected_windows)
+    labels = label(img_heat)
+
     t2 = time.time()
     print('Detection time: ', round(t2-t1,2))
+    print(labels[1], 'cars found')
+    img_draw  = draw_labeled_boxes(img_draw, labels)
+    img_boxes = draw_boxes(np.copy(img), all_detected_windows, color=(0, 0, 255), thick=3)
 
-    draw_img = draw_boxes(draw_image, all_detected_windows, color=(0, 0, 255), thick=3)
-    plt.imshow(draw_img)
+    fig = plt.figure()
+    plt.subplot(131)
+    plt.imshow(img_boxes)
+    plt.title('Car Boxes')
+    plt.subplot(132)
+    plt.imshow(img_draw)
+    plt.title('Car Positions')
+    plt.subplot(133)
+    plt.imshow(img_heat, cmap='hot')
+    plt.title('Heat Map')
+    fig.tight_layout()
     plt.show()
 
 
