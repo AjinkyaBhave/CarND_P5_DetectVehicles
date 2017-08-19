@@ -59,7 +59,7 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
 # window size (x and y dimensions),
 # and overlap fraction (for both x and y)
 def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
-                 xy_window=(64, 64), xy_overlap=(0.5, 0.5)):
+                 xy_window=(train_img_width, train_img_height), xy_overlap=(0.5, 0.5)):
     # If x and/or y start/stop positions not defined, set to image size
     if x_start_stop[0] == None:
         x_start_stop[0] = 0
@@ -99,18 +99,6 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
     # Return the list of windows
     return window_list
 
-
-# Define a function to draw bounding boxes
-def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
-    # Make a copy of the image
-    imcopy = np.copy(img)
-    # Iterate through the bounding boxes
-    for bbox in bboxes:
-        # Draw a rectangle given bbox coordinates
-        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
-    # Return the image copy with boxes drawn
-    return imcopy
-
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
 def search_windows(img, windows, clf, scaler, color_space='RGB',
@@ -124,7 +112,7 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     # Iterate over all windows in the list
     for window in windows:
         # Extract the test window from original image
-        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))
+        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (train_img_width, train_img_height))
         # Extract features for that window using single_img_features()
         features = single_img_features(test_img, color_space=color_space,
                                        spatial_size=spatial_size, hist_bins=hist_bins,
@@ -142,9 +130,19 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     # Return windows for positive detections
     return on_windows
 
+# Define a function to draw bounding boxes
+def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
+    # Make a copy of the image
+    imcopy = np.copy(img)
+    # Iterate through the bounding boxes
+    for bbox in bboxes:
+        # Draw a rectangle given bbox coordinates
+        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
+    # Return the image copy with boxes drawn
+    return imcopy
 
 if __name__ == '__main__':
-    img = cv2.imread('./test_images/test4.jpg')
+    img = cv2.imread('./test_images/bbox-example-image.jpg')
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     draw_image = np.copy(img)
 
@@ -158,21 +156,32 @@ if __name__ == '__main__':
     # data from .png images (scaled 0 to 1 by mpimg) and the
     # image you are searching is a .jpg (scaled 0 to 255)
     # image = image.astype(np.float32)/255
-    y_start_stop = [470, None]  # Min and max in y to search in slide_window()
+    x_start_stop = [0, 1200]  # Min and max in y to search in slide_window()
+    y_start_stop = [470, 656]  # Min and max in y to search in slide_window()
+    win_scales = [1, 2, 2.5]
+    all_detected_windows = []
+    t1 = time.time()
 
-    windows = slide_window(img, x_start_stop=[None, None], y_start_stop=y_start_stop,
-                           xy_window=(96, 96), xy_overlap=(0.5, 0.5))
+    for scale in win_scales:
+        print('scale: ', scale)
+        win_size = (np.int(scale*train_img_width), np.int(scale*train_img_height))
+        windows = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop,
+                               xy_window=win_size, xy_overlap=(0.5, 0.5))
 
-    hot_windows = search_windows(img, windows, svc, X_scaler, color_space=color_space,
-                                 spatial_size=spatial_size, hist_bins=hist_bins,
-                                 orient=orient, pix_per_cell=pix_per_cell,
-                                 cell_per_block=cell_per_block,
-                                 hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                 hist_feat=hist_feat, hog_feat=hog_feat)
+        detected_windows = search_windows(img, windows, svc, X_scaler, color_space=color_space,
+                                     spatial_size=spatial_size, hist_bins=hist_bins,
+                                     orient=orient, pix_per_cell=pix_per_cell,
+                                     cell_per_block=cell_per_block,
+                                     hog_channel=hog_channel, spatial_feat=spatial_feat,
+                                     hist_feat=hist_feat, hog_feat=hog_feat)
+        all_detected_windows.extend(detected_windows)
+        #plt.imshow(draw_img)
+        #plt.show()
+    t2 = time.time()
+    print('Detection time: ', round(t2-t1,2))
 
-    window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
-    print('Finished detect')
-    plt.imshow(window_img)
+    draw_img = draw_boxes(draw_image, all_detected_windows, color=(0, 0, 255), thick=3)
+    plt.imshow(draw_img)
     plt.show()
 
 

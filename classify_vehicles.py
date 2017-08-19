@@ -6,7 +6,7 @@ import pickle
 from skimage.feature import hog
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.externals import joblib
 
 # Define a function to return HOG features and visualization
@@ -106,11 +106,13 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
     # Return list of feature vectors
     return features
 
+train_img_width  = 64       # Width of images in training dataset
+train_img_height = 64       # Height of images in training dataset
 color_space      = 'HSV'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient           = 9        # HOG orientations
 pix_per_cell     = 6        # HOG pixels per cell
 cell_per_block   = 3        # HOG cells per block
-hog_channel      = 0        # Can be 0, 1, 2, or "ALL"
+hog_channel      = 2        # Can be 0, 1, 2, or "ALL"
 spatial_size     = (16, 16) # Spatial binning dimensions
 hist_bins        = 16       # Number of histogram bins
 spatial_feat     = False    # Spatial features on or off
@@ -162,9 +164,12 @@ if __name__ == '__main__':
     print('Feature vector length:', len(X_train[0]))
 
     # Use a linear SVC
-    svc = LinearSVC()
+    clf = LinearSVC()
     # Check the training time for the SVC
     t = time.time()
+    #parameters = {'kernel': ('linear', 'rbf'), 'C': range(1, 11)}
+    parameters = {'C': np.linspace(0.1,10, num = 20)}
+    svc = GridSearchCV(clf, parameters)
     svc.fit(X_train, y_train)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to train SVC...')
