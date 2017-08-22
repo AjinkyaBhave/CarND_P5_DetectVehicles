@@ -55,7 +55,7 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
 def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
                      hist_bins=32, orient=9,
                      pix_per_cell=8, cell_per_block=2, hog_channel=0,
-                     spatial_feat=True, hist_feat=True, hog_feat=True):
+                     use_spatial=True, use_hist=True, use_hog=True):
     # Create a list to append feature vectors to
     features = []
     # Iterate through the list of images
@@ -81,14 +81,14 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
         else:
             feature_image = np.copy(img)
 
-        if spatial_feat == True:
+        if use_spatial == True:
             spatial_features = bin_spatial(feature_image, size=spatial_size)
             file_features.append(spatial_features)
-        if hist_feat == True:
+        if use_hist == True:
             # Apply color_hist()
             hist_features = color_hist(feature_image, nbins=hist_bins)
             file_features.append(hist_features)
-        if hog_feat == True:
+        if use_hog == True:
             # Call get_hog_features() with vis=False, feature_vec=True
             if hog_channel == 'ALL':
                 hog_features = []
@@ -112,12 +112,12 @@ color_space      = 'HSV'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient           = 9        # HOG orientations
 pix_per_cell     = 6        # HOG pixels per cell
 cell_per_block   = 3        # HOG cells per block
-hog_channel      = 2        # Can be 0, 1, 2, or "ALL"
+hog_channel      = 'ALL'    # Can be 0, 1, 2, or "ALL"
 spatial_size     = (16, 16) # Spatial binning dimensions
 hist_bins        = 16       # Number of histogram bins
-spatial_feat     = False    # Spatial features on or off
-hist_feat        = True    # Histogram features on or off
-hog_feat         = True     # HOG features on or off
+use_spatial      = False    # Spatial features on or off
+use_hist         = True     # Histogram features on or off
+use_hog          = True     # HOG features on or off
 vehicles_dir     = './dataset/vehicles_smallset'
 non_vehicles_dir = './dataset/non-vehicles_smallset'
 svm_model_path   = './svm_model.pkl'
@@ -138,14 +138,14 @@ if __name__ == '__main__':
                                     spatial_size=spatial_size, hist_bins=hist_bins,
                                     orient=orient, pix_per_cell=pix_per_cell,
                                     cell_per_block=cell_per_block,
-                                    hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                    hist_feat=hist_feat, hog_feat=hog_feat)
+                                    hog_channel=hog_channel, use_spatial=use_spatial,
+                                    use_hist=use_hist, use_hog=use_hog)
     notcar_features = extract_features(notcars, color_space=color_space,
                                        spatial_size=spatial_size, hist_bins=hist_bins,
                                        orient=orient, pix_per_cell=pix_per_cell,
                                        cell_per_block=cell_per_block,
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
+                                       hog_channel=hog_channel, use_spatial=use_spatial,
+                                       use_hist=use_hist, use_hog=use_hog)
     X = np.vstack((car_features, notcar_features)).astype(np.float64)
     # Fit a per-column scaler
     X_scaler = StandardScaler().fit(X)

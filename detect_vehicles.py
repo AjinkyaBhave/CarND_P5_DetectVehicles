@@ -9,7 +9,7 @@ from scipy.ndimage.measurements import label
 def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
                         hist_bins=32, orient=9,
                         pix_per_cell=8, cell_per_block=2, hog_channel=0,
-                        spatial_feat=True, hist_feat=True, hog_feat=True):
+                        use_spatial=True, use_hist=True, use_hog=True):
     # 1) Define an empty list to receive features
     img_features = []
     # 2) Apply color conversion if other than 'RGB'
@@ -29,17 +29,17 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
     else:
         feature_image = np.copy(img)
     # 3) Compute spatial features if flag is set
-    if spatial_feat == True:
+    if use_spatial == True:
         spatial_features = bin_spatial(feature_image, size=spatial_size)
         # 4) Append features to list
         img_features.append(spatial_features)
     # 5) Compute histogram features if flag is set
-    if hist_feat == True:
+    if use_hist == True:
         hist_features = color_hist(feature_image, nbins=hist_bins)
         # 6) Append features to list
         img_features.append(hist_features)
     # 7) Compute HOG features if flag is set
-    if hog_feat == True:
+    if use_hog == True:
         if hog_channel == 'ALL':
             hog_features = []
             for channel in range(feature_image.shape[2]):
@@ -106,8 +106,8 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
                    spatial_size=(32, 32), hist_bins=32,
                    hist_range=(0, 256), orient=9,
                    pix_per_cell=8, cell_per_block=2,
-                   hog_channel=0, spatial_feat=True,
-                   hist_feat=True, hog_feat=True):
+                   hog_channel=0, use_spatial=True,
+                   use_hist=True, use_hog=True):
     # Create an empty list to receive positive detection windows
     on_windows = []
     # Iterate over all windows in the list
@@ -120,8 +120,8 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
                                        spatial_size=spatial_size, hist_bins=hist_bins,
                                        orient=orient, pix_per_cell=pix_per_cell,
                                        cell_per_block=cell_per_block,
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
+                                       hog_channel=hog_channel, use_spatial=use_spatial,
+                                       use_hist=use_hist, use_hog=use_hog)
         # Scale extracted features to be fed to classifier
         test_features = scaler.transform(np.array(features).reshape(1, -1))
         # Predict using your classifier
@@ -131,6 +131,77 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
             on_windows.append(window)
     # Return windows for positive detections
     return on_windows
+
+# Define a single function that can extract features using hog sub-sampling and make predictions
+def scale_search_image(img, scale, svc, X_scaler):
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    img_search = img[y_start_stop[0]:y_start_stop[1], :, :]
+    if scale != 1:
+        img_search = cv2.resize(img_search, (np.int(img_search.shape[1] / scale),
+                                             np.int(img_search.shape[0] / scale)))
+
+    ch1 = img_search[:, :, 0]
+    ch2 = img_search[:, :, 1]
+    ch3 = img_search[:, :, 2]
+
+    # Define blocks in image in x and y
+    nxblocks = (ch1.shape[1] // pix_per_cell) - cell_per_block + 1
+    nyblocks = (ch1.shape[0] // pix_per_cell) - cell_per_block + 1
+
+    # 64 pixels was the original training window, with 3 cells and 6 pix per cell
+    window = train_img_width
+    nwinblocks = (window // pix_per_cell) - cell_per_block + 1
+    cells_per_step = 8  # Instead of overlap, define how many cells to step
+    nxsteps = (nxblocks - nwinblocks) // cells_per_step
+    nysteps = (nyblocks - nwinblocks) // cells_per_step
+
+    # Compute individual channel HOG features for the entire image
+    hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+
+    # Initialize a list to append window positions to
+    window_list = []
+
+    for xb in range(nxsteps):
+        for yb in range(nysteps):
+            ypos = yb * cells_per_step
+            xpos = xb * cells_per_step
+            # Extract HOG for this patch
+            hog_feat1 = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            hog_feat2 = hog2[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            hog_feat3 = hog3[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+
+            xleft = xpos * pix_per_cell
+            ytop = ypos * pix_per_cell
+
+            # Extract the image patch
+            subimg = cv2.resize(img_search[ytop:ytop + window, xleft:xleft + window], (64, 64))
+
+            # Get color features
+            if use_spatial == True:
+                spatial_features = bin_spatial(subimg, size=spatial_size)
+            if use_hist == True:
+                hist_features = color_hist(subimg, nbins=hist_bins)
+
+            # Scale features and make a prediction
+            test_features = X_scaler.transform(
+                #np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
+                np.hstack((hist_features, hog_features)).reshape(1, -1))
+            # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
+            test_prediction = svc.predict(test_features)
+
+            if test_prediction == 1:
+                win_scaled = np.int(window * scale)
+                startx = np.int(xleft * scale) + x_start_stop[0]
+                starty = np.int(ytop * scale) + y_start_stop[0]
+                endx = startx + win_scaled
+                endy = starty + win_scaled
+                # Append window position to list
+                window_list.append(((startx, starty), (endx, endy)))
+                #cv2.rectangle(img_draw, (startx, starty),(endx, endy), (0, 0, 255), 6)
+    return window_list
 
 def create_heatmap(heatmap, bbox_list):
     # Iterate through list of bboxes
@@ -169,9 +240,11 @@ def draw_labeled_boxes(img_draw, labels):
 
 if __name__ == '__main__':
     x_start_stop = [0, 1200]  # Min and max in y to search in slide_window()
-    y_start_stop = [500, 656]  # Min and max in y to search in slide_window()
-    win_scales = [1, 2, 2.5]
+    y_start_stop = [470, 700]  # Min and max in y to search in slide_window()
+    #win_scales = [0.5, 1, 2, 2.5]
+    win_params = {}
     all_detected_windows = []
+    use_slow_slide = False
 
     img = cv2.imread('./test_images/bbox-example-image.jpg')
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -194,19 +267,23 @@ if __name__ == '__main__':
     # image = image.astype(np.float32)/255
 
     t1 = time.time()
-
+    win_scales = [1,1.5,2]
     for scale in win_scales:
         print('scale: ', scale)
-        win_size = (np.int(scale*train_img_width), np.int(scale*train_img_height))
-        windows = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop,
+        if use_slow_slide == True:
+            win_size = (np.int(scale*train_img_width), np.int(scale*train_img_height))
+            windows = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop,
                                xy_window=win_size, xy_overlap=(0.5, 0.5))
 
-        detected_windows = search_windows(img, windows, svc, X_scaler, color_space=color_space,
+            detected_windows = search_windows(img, windows, svc, X_scaler, color_space=color_space,
                                      spatial_size=spatial_size, hist_bins=hist_bins,
                                      orient=orient, pix_per_cell=pix_per_cell,
                                      cell_per_block=cell_per_block,
-                                     hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                     hist_feat=hist_feat, hog_feat=hog_feat)
+                                     hog_channel=hog_channel, use_spatial=use_spatial,
+                                     use_hist=use_hist, use_hog=use_hog)
+        else:
+            detected_windows = scale_search_image(img, scale, svc, X_scaler)
+
         all_detected_windows.extend(detected_windows)
 
     img_heat=create_heatmap(img_heat,all_detected_windows)
