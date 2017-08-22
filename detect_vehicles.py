@@ -59,20 +59,20 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
 # start and stop positions in both x and y,
 # window size (x and y dimensions),
 # and overlap fraction (for both x and y)
-def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
+def slide_window(img, x_start=None, x_stop=None, y_start=None, y_stop=None,
                  xy_window=(train_img_width, train_img_height), xy_overlap=(0.5, 0.5)):
     # If x and/or y start/stop positions not defined, set to image size
-    if x_start_stop[0] == None:
-        x_start_stop[0] = 0
-    if x_start_stop[1] == None:
+    if x_start == None:
+        x_start = 0
+    if x_stop == None:
         x_start_stop[1] = img.shape[1]
-    if y_start_stop[0] == None:
-        y_start_stop[0] = 0
-    if y_start_stop[1] == None:
-        y_start_stop[1] = img.shape[0]
+    if y_start == None:
+        y_start = 0
+    if y_stop == None:
+        y_stop = img.shape[0]
     # Compute the span of the region to be searched
-    xspan = x_start_stop[1] - x_start_stop[0]
-    yspan = y_start_stop[1] - y_start_stop[0]
+    xspan = x_stop - x_start
+    yspan = y_stop - y_start
     # Compute the number of pixels per step in x/y
     nx_pix_per_step = np.int(xy_window[0] * (1 - xy_overlap[0]))
     ny_pix_per_step = np.int(xy_window[1] * (1 - xy_overlap[1]))
@@ -90,9 +90,9 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
     for ys in range(ny_windows):
         for xs in range(nx_windows):
             # Calculate window position
-            startx = xs * nx_pix_per_step + x_start_stop[0]
+            startx = xs * nx_pix_per_step + x_start
             endx = startx + xy_window[0]
-            starty = ys * ny_pix_per_step + y_start_stop[0]
+            starty = ys * ny_pix_per_step + y_start
             endy = starty + xy_window[1]
 
             # Append window position to list
@@ -133,16 +133,25 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     return on_windows
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
-def scale_search_image(img, scale, svc, X_scaler):
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-    img_search = img[y_start_stop[0]:y_start_stop[1], :, :]
+def subsample_scaled_image(img, scale, svc, X_scaler):
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    img_search = img[y_start:y_stop, :, :]
     if scale != 1:
         img_search = cv2.resize(img_search, (np.int(img_search.shape[1] / scale),
                                              np.int(img_search.shape[0] / scale)))
 
-    ch1 = img_search[:, :, 0]
-    ch2 = img_search[:, :, 1]
-    ch3 = img_search[:, :, 2]
+    if hog_channel == 'ALL':
+        ch1 = img_search[:, :, 0]
+        ch2 = img_search[:, :, 1]
+        ch3 = img_search[:, :, 2]
+
+        # Compute individual channel HOG features for the entire image
+        hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+        hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+        hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    else:
+        ch1 = img_search[:,:,hog_channel]
+        hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
 
     # Define blocks in image in x and y
     nxblocks = (ch1.shape[1] // pix_per_cell) - cell_per_block + 1
@@ -151,51 +160,51 @@ def scale_search_image(img, scale, svc, X_scaler):
     # 64 pixels was the original training window, with 3 cells and 6 pix per cell
     window = train_img_width
     nwinblocks = (window // pix_per_cell) - cell_per_block + 1
-    cells_per_step = 8  # Instead of overlap, define how many cells to step
+    cells_per_step = 3  # Instead of overlap, define how many cells to step
     nxsteps = (nxblocks - nwinblocks) // cells_per_step
     nysteps = (nyblocks - nwinblocks) // cells_per_step
-
-    # Compute individual channel HOG features for the entire image
-    hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
-    hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
-    hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
 
     # Initialize a list to append window positions to
     window_list = []
 
     for xb in range(nxsteps):
         for yb in range(nysteps):
+            # Define an empty list to receive features
+            img_features = []
             ypos = yb * cells_per_step
             xpos = xb * cells_per_step
-            # Extract HOG for this patch
-            hog_feat1 = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
-            hog_feat2 = hog2[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
-            hog_feat3 = hog3[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
-            hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
-
             xleft = xpos * pix_per_cell
             ytop = ypos * pix_per_cell
 
             # Extract the image patch
             subimg = cv2.resize(img_search[ytop:ytop + window, xleft:xleft + window], (64, 64))
-
             # Get color features
             if use_spatial == True:
                 spatial_features = bin_spatial(subimg, size=spatial_size)
+                img_features.append(spatial_features)
             if use_hist == True:
                 hist_features = color_hist(subimg, nbins=hist_bins)
-
+                img_features.append(hist_features)
+            if hog_channel == 'ALL':
+                # Extract HOG for this patch
+                hog_feat1 = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+                hog_feat2 = hog2[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+                hog_feat3 = hog3[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+                hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+            else:
+                # Extract HOG for this patch
+                hog_features = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            img_features.append(hog_features)
+            feature_vector = np.concatenate(img_features).astype(np.float64)
             # Scale features and make a prediction
-            test_features = X_scaler.transform(
-                #np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
-                np.hstack((hist_features, hog_features)).reshape(1, -1))
-            # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
+            test_features = X_scaler.transform(np.array(feature_vector).reshape(1, -1))
+            # np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
             test_prediction = svc.predict(test_features)
 
             if test_prediction == 1:
                 win_scaled = np.int(window * scale)
-                startx = np.int(xleft * scale) + x_start_stop[0]
-                starty = np.int(ytop * scale) + y_start_stop[0]
+                startx = np.int(xleft * scale) + x_start
+                starty = np.int(ytop * scale) + y_start
                 endx = startx + win_scaled
                 endy = starty + win_scaled
                 # Append window position to list
@@ -239,17 +248,20 @@ def draw_labeled_boxes(img_draw, labels):
     return img_draw
 
 if __name__ == '__main__':
-    x_start_stop = [0, 1200]  # Min and max in y to search in slide_window()
-    y_start_stop = [470, 700]  # Min and max in y to search in slide_window()
-    #win_scales = [0.5, 1, 2, 2.5]
-    win_params = {}
+    # Scales to search for vehicle features in image
+    scale_list = [2, 1.5, 1]
+    # Min and max in y to search in slide_window based on scale
+    x_start_stop = [(0, 1200),(200, 850),(400,700)]
+    y_start_stop = [(500, 700),(450, 550),(470, 510) ]
     all_detected_windows = []
     use_slow_slide = False
 
     img = cv2.imread('./test_images/bbox-example-image.jpg')
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    # Image copy to draw detected vehicle boxes
+    # Image copy to draw detected vehicle boxes after heat maps
     img_draw = np.copy(img)
+    # Image copy to draw detected vehicle boxes before heat maps
+    img_boxes = np.copy(img)
     # Heat map to combine multiple scale detections
     img_heat = np.zeros_like(img[:, :, 0]).astype(np.float)
     # Minumum number of times a pixel is present in a bounding box set to accept detection
@@ -267,12 +279,16 @@ if __name__ == '__main__':
     # image = image.astype(np.float32)/255
 
     t1 = time.time()
-    win_scales = [1,1.5,2]
-    for scale in win_scales:
-        print('scale: ', scale)
+    for i, scale in enumerate(scale_list):
+        x_start = x_start_stop[i][0]
+        x_stop  = x_start_stop[i][1]
+        y_start = y_start_stop[i][0]
+        y_stop  = y_start_stop[i][1]
+        print(scale, x_start, x_stop, y_start, y_stop)
+
         if use_slow_slide == True:
             win_size = (np.int(scale*train_img_width), np.int(scale*train_img_height))
-            windows = slide_window(img, x_start_stop=x_start_stop, y_start_stop=y_start_stop,
+            windows = slide_window(img, x_start=x_start, x_stop=x_stop, y_start=y_start, y_stop=y_stop,
                                xy_window=win_size, xy_overlap=(0.5, 0.5))
 
             detected_windows = search_windows(img, windows, svc, X_scaler, color_space=color_space,
@@ -282,7 +298,7 @@ if __name__ == '__main__':
                                      hog_channel=hog_channel, use_spatial=use_spatial,
                                      use_hist=use_hist, use_hog=use_hog)
         else:
-            detected_windows = scale_search_image(img, scale, svc, X_scaler)
+            detected_windows = subsample_scaled_image(img, scale, svc, X_scaler)
 
         all_detected_windows.extend(detected_windows)
 
@@ -293,7 +309,7 @@ if __name__ == '__main__':
     print('Detection time: ', round(t2-t1,2))
     print(labels[1], 'cars found')
     img_draw  = draw_labeled_boxes(img_draw, labels)
-    img_boxes = draw_boxes(np.copy(img), all_detected_windows, color=(0, 0, 255), thick=3)
+    img_boxes = draw_boxes(img_boxes, all_detected_windows, color=(0, 0, 255), thick=3)
 
     fig = plt.figure()
     plt.subplot(131)

@@ -108,32 +108,32 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
 
 train_img_width  = 64       # Width of images in training dataset
 train_img_height = 64       # Height of images in training dataset
-color_space      = 'HSV'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+color_space      = 'YUV'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient           = 9        # HOG orientations
 pix_per_cell     = 6        # HOG pixels per cell
 cell_per_block   = 3        # HOG cells per block
-hog_channel      = 'ALL'    # Can be 0, 1, 2, or "ALL"
+hog_channel      = 0    # Can be 0, 1, 2, or "ALL"
 spatial_size     = (16, 16) # Spatial binning dimensions
 hist_bins        = 16       # Number of histogram bins
 use_spatial      = False    # Spatial features on or off
 use_hist         = True     # Histogram features on or off
 use_hog          = True     # HOG features on or off
-vehicles_dir     = './dataset/vehicles_smallset'
-non_vehicles_dir = './dataset/non-vehicles_smallset'
+vehicles_dir     = './dataset/vehicles'
+non_vehicles_dir = './dataset/non-vehicles'
 svm_model_path   = './svm_model.pkl'
 scaler_model_path= './scaler_model.pkl'
 
 if __name__ == '__main__':
     # Read in vehicles and non-vehicles
     cars = []
-    img_names = glob.glob(vehicles_dir + '/**/*.jpeg', recursive=True)
+    img_names = glob.glob(vehicles_dir + '/**/*.png', recursive=True)
     for img_name in img_names:
         cars.append(img_name)
     notcars = []
-    img_names = glob.glob(non_vehicles_dir + '/**/*.jpeg', recursive=True)
+    img_names = glob.glob(non_vehicles_dir + '/**/*.png', recursive=True)
     for img_name in img_names:
         notcars.append(img_name)
-
+    print('Cars set size: ', len(cars), ' Noncars set size: ',len(notcars))
     car_features = extract_features(cars, color_space=color_space,
                                     spatial_size=spatial_size, hist_bins=hist_bins,
                                     orient=orient, pix_per_cell=pix_per_cell,
