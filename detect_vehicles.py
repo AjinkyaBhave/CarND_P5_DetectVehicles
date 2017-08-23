@@ -197,19 +197,21 @@ def subsample_scaled_image(img, scale, svc, X_scaler):
             img_features.append(hog_features)
             feature_vector = np.concatenate(img_features).astype(np.float64)
             # Scale features and make a prediction
-            test_features = X_scaler.transform(np.array(feature_vector).reshape(1, -1))
+            test_features = X_scaler.transform(feature_vector.reshape(1, -1))
             # np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
             test_prediction = svc.predict(test_features)
 
             if test_prediction == 1:
-                win_scaled = np.int(window * scale)
-                startx = np.int(xleft * scale) + x_start
-                starty = np.int(ytop * scale) + y_start
-                endx = startx + win_scaled
-                endy = starty + win_scaled
-                # Append window position to list
-                window_list.append(((startx, starty), (endx, endy)))
-                #cv2.rectangle(img_draw, (startx, starty),(endx, endy), (0, 0, 255), 6)
+                print ('Confidence: ', svc.decision_function(test_features))
+                if svc.decision_function(test_features) > 1.0:
+                    win_scaled = np.int(window * scale)
+                    startx = np.int(xleft * scale) + x_start
+                    starty = np.int(ytop * scale) + y_start
+                    endx = startx + win_scaled
+                    endy = starty + win_scaled
+                    # Append window position to list
+                    window_list.append(((startx, starty), (endx, endy)))
+                    #cv2.rectangle(img_draw, (startx, starty),(endx, endy), (0, 0, 255), 6)
     return window_list
 
 def create_heatmap(heatmap, bbox_list):
@@ -252,7 +254,7 @@ if __name__ == '__main__':
     scale_list = [2, 1.5, 1]
     # Min and max in y to search in slide_window based on scale
     x_start_stop = [(0, 1200),(200, 850),(400,700)]
-    y_start_stop = [(500, 700),(450, 550),(470, 510) ]
+    y_start_stop = [(500, 700),(400, 600),(470, 510) ]
     all_detected_windows = []
     use_slow_slide = False
 
@@ -269,6 +271,7 @@ if __name__ == '__main__':
 
     # Load pre-trained SVM classifier model
     svc = joblib.load(svm_model_path)
+    print(svc.best_params_)
     # Fit a per-column scaler
     X_scaler = joblib.load(scaler_model_path)
     print('Load SVM and Scaler')

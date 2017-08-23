@@ -66,18 +66,19 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         # apply color conversion if other than 'RGB'
         if color_space != 'RGB':
-            if color_space == 'HSV':
+            if color_space == 'Lab':
+                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2Lab)
+            elif color_space == 'YUV':
+                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+            elif color_space == 'YCrCb':
+                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+            elif color_space == 'HSV':
                 feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
             elif color_space == 'LUV':
                 feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
             elif color_space == 'HLS':
                 feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-            elif color_space == 'YUV':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-            elif color_space == 'YCrCb':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-            elif color_space == 'LAB':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+
         else:
             feature_image = np.copy(img)
 
@@ -108,15 +109,15 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
 
 train_img_width  = 64       # Width of images in training dataset
 train_img_height = 64       # Height of images in training dataset
-color_space      = 'YUV'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+color_space      = 'Lab'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient           = 9        # HOG orientations
 pix_per_cell     = 6        # HOG pixels per cell
 cell_per_block   = 3        # HOG cells per block
-hog_channel      = 0    # Can be 0, 1, 2, or "ALL"
+hog_channel      = 'ALL'        # Can be 0, 1, 2, or "ALL"
 spatial_size     = (16, 16) # Spatial binning dimensions
 hist_bins        = 16       # Number of histogram bins
 use_spatial      = False    # Spatial features on or off
-use_hist         = True     # Histogram features on or off
+use_hist         = False     # Histogram features on or off
 use_hog          = True     # HOG features on or off
 vehicles_dir     = './dataset/vehicles'
 non_vehicles_dir = './dataset/non-vehicles'
@@ -124,16 +125,24 @@ svm_model_path   = './svm_model.pkl'
 scaler_model_path= './scaler_model.pkl'
 
 if __name__ == '__main__':
+    # Create empty list to store car image names
+    img_names = []
     # Read in vehicles and non-vehicles
     cars = []
-    img_names = glob.glob(vehicles_dir + '/**/*.png', recursive=True)
+    for img_type in ['*.png', '*.jpg']:
+        img_names.extend(glob.glob(vehicles_dir + '/**/' + img_type, recursive=True))
     for img_name in img_names:
         cars.append(img_name)
+    # Delete list to append non-car images now
+    del img_names[:]
+    img_names = []
     notcars = []
-    img_names = glob.glob(non_vehicles_dir + '/**/*.png', recursive=True)
+    for img_type in ['*.png', '*.jpg']:
+        img_names.extend(glob.glob(non_vehicles_dir + '/**/' + img_type, recursive=True))
     for img_name in img_names:
         notcars.append(img_name)
-    print('Cars set size: ', len(cars), ' Noncars set size: ',len(notcars))
+    print('Cars set size: ', len(cars), ' Non-cars set size: ', len(notcars))
+
     car_features = extract_features(cars, color_space=color_space,
                                     spatial_size=spatial_size, hist_bins=hist_bins,
                                     orient=orient, pix_per_cell=pix_per_cell,
@@ -168,11 +177,12 @@ if __name__ == '__main__':
     # Check the training time for the SVC
     t = time.time()
     #parameters = {'kernel': ('linear', 'rbf'), 'C': range(1, 11)}
-    parameters = {'C': np.linspace(0.1,10, num = 20)}
+    parameters = {'C': np.linspace(0.01,2, num = 20)}
     svc = GridSearchCV(clf, parameters)
     svc.fit(X_train, y_train)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to train SVC...')
+    print('Best C: ', svc.best_params_)
     # Check the score of the SVC
     print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 
