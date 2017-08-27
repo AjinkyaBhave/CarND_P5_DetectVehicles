@@ -109,10 +109,10 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
 
 train_img_width  = 64       # Width of images in training dataset
 train_img_height = 64       # Height of images in training dataset
-color_space      = 'Lab'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-orient           = 9        # HOG orientations
-pix_per_cell     = 6        # HOG pixels per cell
-cell_per_block   = 3        # HOG cells per block
+color_space      = 'YUV'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+orient           = 11        # HOG orientations
+pix_per_cell     = 16       # HOG pixels per cell
+cell_per_block   = 2        # HOG cells per block
 hog_channel      = 'ALL'        # Can be 0, 1, 2, or "ALL"
 spatial_size     = (16, 16) # Spatial binning dimensions
 hist_bins        = 16       # Number of histogram bins
@@ -173,16 +173,16 @@ if __name__ == '__main__':
     print('Feature vector length:', len(X_train[0]))
 
     # Use a linear SVC
-    clf = LinearSVC()
+    svc = LinearSVC(C=0.01)
     # Check the training time for the SVC
     t = time.time()
     #parameters = {'kernel': ('linear', 'rbf'), 'C': range(1, 11)}
-    parameters = {'C': np.linspace(0.01,2, num = 20)}
-    svc = GridSearchCV(clf, parameters)
+    #parameters = {'C': np.linspace(0.01,2, num = 20)}
+    #svc = GridSearchCV(clf, parameters)
     svc.fit(X_train, y_train)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to train SVC...')
-    print('Best C: ', svc.best_params_)
+    #print('Best C: ', svc.best_params_)
     # Check the score of the SVC
     print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 
