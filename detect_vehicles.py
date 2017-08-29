@@ -140,12 +140,14 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                     window_list.append(((startx, starty), (endx, endy)))
                     if visualise == True:
                         if scale == 1:
-                            colour_tuple = (0, 0, 255)
-                        elif scale == 1.5:
                             colour_tuple = (255, 0, 0)
-                        else:
+                        elif scale == 1.5:
                             colour_tuple = (0, 255, 0)
-                        cv2.rectangle(img_local, (startx, starty), (endx, endy), colour_tuple, 3)
+                        elif scale == 2:
+                            colour_tuple = (0, 0, 255)
+                        else:
+                            colour_tuple = (255,255,0)
+                        cv2.rectangle(img_local, (startx, starty), (endx, endy), colour_tuple, 2)
                         plt.imshow(img_local)
                         plt.show()
 
@@ -214,13 +216,13 @@ if __name__ == '__main__':
     video_img_dir = img_dir + 'test_video/'
 
     # Scales to search for vehicle features in image
-    scale_list = [2, 1.5, 1]
+    scale_list = [3, 2, 1.5, 1]
     # Region in x and y to search in slide_window based on scale
-    x_start_stop = [(0, 1280), (300, 1280), (300, 1280)]
-    y_start_stop = [(400, 700), (400, 600), (400, 560)]
+    x_start_stop = [(0, 1280), (300, 1280), (300, 1280), (300, 1280)]
+    y_start_stop = [(400, 700), (400, 600), (400, 560), (400, 520)]
     # Overlap in cells per step x and y
-    cells_xstep_list = [3, 2, 3]
-    cells_ystep_list = [2, 2, 2]
+    cells_xstep_list = [3, 4, 2, 3]
+    cells_ystep_list = [3, 2, 2, 2]
 
     # Classifier confidence above which detection is true
     SVC_CONF_THRESH = 0.1
@@ -233,7 +235,7 @@ if __name__ == '__main__':
     print('Load SVM and Scaler')
 
     # Run on video file if true else run on test images
-    TEST_ON_VIDEO = True
+    TEST_ON_VIDEO = False
 
     if TEST_ON_VIDEO == True:
         # Video is at 25 FPS
