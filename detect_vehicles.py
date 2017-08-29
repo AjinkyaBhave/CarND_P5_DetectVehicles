@@ -1,9 +1,10 @@
 import os
 import matplotlib.pyplot as plt
 from sklearn.externals import joblib
-from classify_vehicles import *
 from scipy.ndimage.measurements import label
+from collections import deque
 from moviepy.editor import VideoFileClip
+from classify_vehicles import *
 
 def track_vehicles(img, visualise=False):
     # Image copy to draw detected vehicle boxes after heat maps
@@ -32,7 +33,10 @@ def track_vehicles(img, visualise=False):
                                          x_start, x_stop, y_start, y_stop, visualise=visualise  )
         all_detected_windows.extend(detected_windows)
 
-    img_heat=create_heatmap(img_heat,heat_thresh, all_detected_windows)
+    if len(prev_detected_windows) == n_prev_frames:
+        prev_detected_windows.popleft()
+    prev_detected_windows.extend(all_detected_windows)
+    img_heat=create_heatmap(img_heat,heat_thresh, prev_detected_windows)
     labels = label(img_heat)
     t2 = time.time()
     img_draw  = draw_labeled_boxes(img_draw, labels)
@@ -126,10 +130,10 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
             test_features = X_scaler.transform(feature_vector.reshape(1, -1))
             test_prediction = svc.predict(test_features)
 
-            if test_prediction == 1:
+            '''if test_prediction == 1:
                 if visualise == True:
                     print('Confidence: ', svc.decision_function(test_features))
-                if svc.decision_function(test_features) > SVC_CONF_THRESH:
+                if svc.decision_function(test_features) > svc_conf_thresh:
                     #print('Detected Confidence: ', svc.decision_function(test_features))
                     win_scaled = np.int(window * scale)
                     startx = np.int(xleft * scale) + x_start
@@ -139,38 +143,38 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                     # Append window position to list
                     window_list.append(((startx, starty), (endx, endy)))
                     if visualise == True:
-                        if scale == 1:
+                        if scale == 3:
                             colour_tuple = (255, 0, 0)
-                        elif scale == 1.5:
-                            colour_tuple = (0, 255, 0)
                         elif scale == 2:
+                            colour_tuple = (0, 255, 0)
+                        elif scale == 1.5:
                             colour_tuple = (0, 0, 255)
                         else:
                             colour_tuple = (255,255,0)
                         cv2.rectangle(img_local, (startx, starty), (endx, endy), colour_tuple, 2)
                         plt.imshow(img_local)
                         plt.show()
-
-            '''if visualise == True and TEST_ON_VIDEO == False:
-                if scale ==1:
-                    colour_tuple = (0, 0, 255)
-                elif scale == 1.5:
+            '''
+            if visualise == True and TEST_ON_VIDEO == False:
+                if scale == 3:
                     colour_tuple = (255, 0, 0)
-                else:
+                elif scale == 2:
                     colour_tuple = (0, 255, 0)
+                elif scale == 1.5:
+                    colour_tuple = (0, 0, 255)
+                else:
+                    colour_tuple = (255, 255, 0)
                 win_scaled = np.int(window * scale)
                 startx = np.int(xleft * scale) + x_start
                 starty = np.int(ytop * scale) + y_start
                 endx = startx + win_scaled
                 endy = starty + win_scaled
                 cv2.rectangle(img_local, (startx, starty),(endx, endy), colour_tuple, 3)
-            '''
-    '''if visualise == True and TEST_ON_VIDEO == False:
+
+    if visualise == True and TEST_ON_VIDEO == False:
         plt.imshow(img_local)
         plt.show()
-        plt.imshow(img_search)
-        plt.show()
-    '''
+
     return window_list
 
 def create_heatmap(heatmap, heat_thresh, bbox_list):
@@ -215,19 +219,23 @@ if __name__ == '__main__':
     img_dir = 'test_images/'
     video_img_dir = img_dir + 'test_video/'
 
+    # Number of previous frames over which detected windows are checked
+    n_prev_frames = 5
     # Scales to search for vehicle features in image
     scale_list = [3, 2, 1.5, 1]
+    # List of detected windows over n_prev_frames
+    prev_detected_windows = deque(maxlen=n_prev_frames)
     # Region in x and y to search in slide_window based on scale
     x_start_stop = [(0, 1280), (300, 1280), (300, 1280), (300, 1280)]
     y_start_stop = [(400, 700), (400, 600), (400, 560), (400, 520)]
     # Overlap in cells per step x and y
-    cells_xstep_list = [3, 4, 2, 3]
-    cells_ystep_list = [3, 2, 2, 2]
+    cells_xstep_list = [1, 2, 2, 2]
+    cells_ystep_list = [1, 1, 2, 2]
 
     # Classifier confidence above which detection is true
-    SVC_CONF_THRESH = 0.1
+    svc_conf_thresh = 0.1
     # Minumum number of times a pixel is present in a bounding box set to accept detection
-    heat_thresh = 1
+    heat_thresh = 3
     # Load pre-trained SVM classifier model
     svc = joblib.load(svm_model_path)
     # Load pre-trained per-column scaler
