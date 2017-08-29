@@ -33,11 +33,15 @@ def track_vehicles(img, visualise=False):
                                          x_start, x_stop, y_start, y_stop, visualise=visualise  )
         all_detected_windows.extend(detected_windows)
 
-    if len(prev_detected_windows) == n_prev_frames:
+    if len(prev_detected_windows) == n_prev_windows:
         prev_detected_windows.popleft()
     prev_detected_windows.extend(all_detected_windows)
-    img_heat=create_heatmap(img_heat,heat_thresh, prev_detected_windows)
+    img_heat=add_heatmap(img_heat,heat_thresh, prev_detected_windows)
+    #img_heat_total = img_heat_total and img_heat
+    # Zero out pixels below the threshold
+    img_heat[img_heat < heat_thresh] = 0
     labels = label(img_heat)
+
     t2 = time.time()
     img_draw  = draw_labeled_boxes(img_draw, labels)
     img_boxes = draw_boxes(img_boxes, all_detected_windows)
@@ -93,7 +97,6 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
 
     if visualise == True:
         print(scale, x_start, x_stop, y_start, y_stop)
-        #print('nxblocks: ', nxblocks, ' nxsteps: ', nxsteps,  )
     # Initialize a list to append window positions to
     window_list = []
     for xb in range(nxsteps):
@@ -105,7 +108,7 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
             xleft = xpos * pix_per_cell
             ytop = ypos * pix_per_cell
 
-            if use_spatial == True or use_hist == True:
+            '''if use_spatial == True or use_hist == True:
                 # Extract the image patch
                 subimg = cv2.resize(img_search[ytop:ytop + window, xleft:xleft + window], (train_img_height, train_img_width))
             # Get color features
@@ -115,22 +118,19 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
             if use_hist == True:
                 hist_features = color_hist(subimg, nbins=hist_bins)
                 img_features.append(hist_features)
-            if hog_channel == 'ALL':
-                # Extract HOG for all channels in this patch
-                hog_feat1 = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
-                hog_feat2 = hog2[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
-                hog_feat3 = hog3[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
-                hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
-            else:
-                # Extract HOG for single channel in this patch
-                hog_features = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            '''
+            # Extract HOG for all channels in this patch
+            hog_feat1 = hog1[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            hog_feat2 = hog2[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            hog_feat3 = hog3[ypos:ypos + nwinblocks, xpos:xpos + nwinblocks].ravel()
+            hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
             img_features.append(hog_features)
             feature_vector = np.concatenate(img_features).astype(np.float64)
             # Scale features and make a prediction
             test_features = X_scaler.transform(feature_vector.reshape(1, -1))
             test_prediction = svc.predict(test_features)
 
-            '''if test_prediction == 1:
+            if test_prediction == 1:
                 if visualise == True:
                     print('Confidence: ', svc.decision_function(test_features))
                 if svc.decision_function(test_features) > svc_conf_thresh:
@@ -154,8 +154,8 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                         cv2.rectangle(img_local, (startx, starty), (endx, endy), colour_tuple, 2)
                         plt.imshow(img_local)
                         plt.show()
-            '''
-            if visualise == True and TEST_ON_VIDEO == False:
+
+            '''if visualise == True and TEST_ON_VIDEO == False:
                 if scale == 3:
                     colour_tuple = (255, 0, 0)
                 elif scale == 2:
@@ -173,18 +173,16 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
 
     if visualise == True and TEST_ON_VIDEO == False:
         plt.imshow(img_local)
-        plt.show()
+        plt.show()'''
 
     return window_list
 
-def create_heatmap(heatmap, heat_thresh, bbox_list):
+def add_heatmap(heatmap, heat_thresh, boxes):
     # Iterate through list of bboxes
-    for box in bbox_list:
+    for box in boxes:
         # Add += 1 for all pixels inside each bbox
         # Assuming each "box" takes the form ((x1, y1), (x2, y2))
         heatmap[box[0][1]:box[1][1], box[0][0]:box[1][0]] += 1
-        # Zero out pixels below the threshold
-    heatmap[heatmap < heat_thresh] = 0
     # Return updated heatmap
     return heatmap
 
@@ -206,31 +204,34 @@ def draw_labeled_boxes(img_draw, labels):
         nonzeroy = np.array(nonzero[0])
         nonzerox = np.array(nonzero[1])
         # Define a bounding box based on min/max x and y
-        bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
+        box = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
         # Draw the box on the image
-        cv2.rectangle(img_draw, bbox[0], bbox[1], (0,0,255), 3)
+        cv2.rectangle(img_draw, box[0], box[1], (0,0,255), 3)
     # Return the image
     return img_draw
 
 if __name__ == '__main__':
     # Paths to test images and videos
-    video_input = 'test_video.mp4'
-    video_output = 'test_video_output.mp4'
+    video_input = 'project_video.mp4'
+    video_output = 'project_video_output.mp4'
     img_dir = 'test_images/'
     video_img_dir = img_dir + 'test_video/'
-
+    # Scales to search for vehicle features in image
+    scale_list = [2, 1.5, 1]
     # Number of previous frames over which detected windows are checked
     n_prev_frames = 5
-    # Scales to search for vehicle features in image
-    scale_list = [3, 2, 1.5, 1]
+    # Number of previously detected windows to store for heatmap
+    n_prev_windows = len(scale_list)*n_prev_frames
     # List of detected windows over n_prev_frames
-    prev_detected_windows = deque(maxlen=n_prev_frames)
+    prev_detected_windows = deque(maxlen=n_prev_windows)
+    # Heat map to combine detections over n_prev_frames
+    img_heat_total = np.zeros((720,1280),dtype=np.float)
     # Region in x and y to search in slide_window based on scale
-    x_start_stop = [(0, 1280), (300, 1280), (300, 1280), (300, 1280)]
-    y_start_stop = [(400, 700), (400, 600), (400, 560), (400, 520)]
+    x_start_stop = [(300, 1280), (300, 1280), (300, 1280)]
+    y_start_stop = [(400, 700), (400, 560), (400, 464)]
     # Overlap in cells per step x and y
-    cells_xstep_list = [1, 2, 2, 2]
-    cells_ystep_list = [1, 1, 2, 2]
+    cells_xstep_list = [2, 2, 2]
+    cells_ystep_list = [2, 2, 2]
 
     # Classifier confidence above which detection is true
     svc_conf_thresh = 0.1
@@ -243,7 +244,7 @@ if __name__ == '__main__':
     print('Load SVM and Scaler')
 
     # Run on video file if true else run on test images
-    TEST_ON_VIDEO = False
+    TEST_ON_VIDEO = True
 
     if TEST_ON_VIDEO == True:
         # Video is at 25 FPS
