@@ -16,9 +16,9 @@ The goals / steps of this project are the following:
 [image1]: ./output_images/Training_Images.jpg
 [image2]: ./output_images/HOG_Features.jpg
 [image3]: ./output_images/SVM_HyperParam_Results.jpg
-[image4]: ./output_images/Sliding_Window_2.jpg
-[image5]: ./output_images/Sliding_Window_1.5.jpg
-[image6]: ./output_images/Sliding_Window_1.jpg
+[image4]: ./output_images/Sliding_Windows_2.jpg
+[image5]: ./output_images/Sliding_Windows_1.5.jpg
+[image6]: ./output_images/Sliding_Windows_1.jpg
 [image7]: ./output_images/Vehicle_Detection_Pipeline.jpg
 [image8]: ./output_images/False_Positive_Window.jpg
 [video1]: ./project_video_output.mp4
@@ -101,13 +101,15 @@ Here's a [link to my video result](./project_video_output.mp4)
 
 To combine the overlapping bounding boxes obtained from detection at multiple scales, I used the *heatmap* approach outlined in the lectures. I recorded the window coordinates of positive detections in each frame of the video.  From the positive detections, I created a heatmap and then thresholded that map to identify vehicle positions. The threshold is tuned assuming aggregation over multiple frames. I used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap, as suggested in the lesson.  I  assumed each blob corresponded to a unique vehicle.  I constructed bounding boxes to cover the area of each blob detected. The code is in `track_vehicles()` (lines 44 to 49) and the functions referenced there. Since they are identical to the code snippets given in the lecture, I will not describe them in more detail here. 
  
-My approach to filtering false positives is based on three optimisations. The first is to check the confidence of the classifier prediction and reject it if it is below a threshold. This is implemented in `find_vehicles()` (line 140). The value of `svc_conf_thresh` was obtained after analysing the return value of `svc.decision_function` over a large number of detections at all scales over multiple images in the video. The decision function calculates the distance of the test feature from the SVM margin. The more confident the classifier is, the farther the test point is from the margin, and the larger is the return value. Since the value was close to 1 in most cases of good detection, I used this as the value to check against (line 243) and to balance rejecting weaker detections vs. allowing too many false positives.
+My approach to filtering false positives is based on a number of optimisations. The first is to check the confidence of the classifier prediction and reject it if it is below a threshold. This is implemented in `find_vehicles()` (line 140). The value of `svc_conf_thresh` was obtained after analysing the return value of `svc.decision_function` over a large number of detections at all scales over multiple images in the video. The decision function calculates the distance of the test feature from the SVM margin. The more confident the classifier is, the farther the test point is from the margin, and the larger is the return value. Since the value was close to 1 in most cases of good detection, I used this as the value to check against (line 243) and to balance rejecting weaker detections vs. allowing too many false positives.
 
 The second is to aggregate the window detections over a series of images, rather than on a single image. This eliminates any transient detections over multiple frames. By empirically defining a threshold for the heat map (line 244), I was able to eliminate the false positives that popped up earlier in the pipeline. 
 
 The third is to tightly define the region of image to be searched at the three window scales. I found that there were many false positives at the bottom of the image at scale 1 . By enforcing the search region to a narrow band near the middle of the image, the window search detected valid cars and drastically reduced the false positives at that scale. Similar region tuning was applied for the 1.5 and 2 window scales.
 
-An example false positive (left of black car), which was eliminated with this approach, is shown below:
+The fourth is to manually create negative training examples from the false positives and retrain the classifier with the new examples included. This helped to reduce the commonly occuring false positives (yellow road markings and green traffic signs), and made the classifier more robust.
+
+An example false positive (left of black car), which was eliminated with this combined approach, is shown below:
 
 ![False Detection][image8]
 
@@ -119,5 +121,7 @@ An example false positive (left of black car), which was eliminated with this ap
 
 The most time was spent in deciding the thresholds for the heat map and the prediction confidence, as well as the window scales, search regions, and overlap. These were critical in reducing the false positives to an acceptable number in the final implementation. The current pipeline still has a very small number of false positives (the single one in the video appears at ~48 secs just when the white car goes out of frame). Deciding the size of the queue over which to store the bounding boxes also took time to tune empirically.
 
+I am not happy with the accuracy of the bounding boxes in the current implementation. Time permitting, I would have liked to get a tighter overlapping region for each detected vehicle. I might do this later using the non-maximum suppression method for overlapping boxes. My pipeline is not robust to occluding vehicles and clubs the two bounding boxes together when one car overtakes the other. Currently there is a very transient false positive at the end of the video but I cannot guarantee that more will not occur on a different video or under different lighting conditions. Training the classifier on a more diverse dataset, possibly Udacity's, would mitigate this problem.
 
+The code does not run in real-time. To make it so, I would first investigate the OpenCV HOG detector, which is supposed to be an order of magnitude faster. I would also compare a deep learning approach like YOLO(2) which is much faster on GPU-based implementations.
 
