@@ -6,7 +6,7 @@ from collections import deque
 from moviepy.editor import VideoFileClip
 from classify_vehicles import *
 
-def track_vehicles(img, visualise=True):
+def track_vehicles(img, visualise=False):
     # Image copy to draw detected vehicle boxes after heat maps
     img_draw = np.copy(img)
     # Image copy to draw detected vehicle boxes before heat maps
@@ -240,8 +240,6 @@ if __name__ == '__main__':
 
     # Classifier confidence above which detection is true
     svc_conf_thresh = 1.0
-    # Label pattern for connected regions in heatmap
-    label_s = [[1, 1, 1],[1, 1, 1],[1, 1, 1]]
     # Minumum number of times a pixel is present in a bounding box set to accept detection
     heat_thresh = 7
     # Load pre-trained SVM classifier model
