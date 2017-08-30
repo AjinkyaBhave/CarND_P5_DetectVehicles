@@ -72,18 +72,14 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
     img_local = np.copy(img)
     img_search = cv2.resize(img_search, (np.int(img_search.shape[1] / scale),
                                              np.int(img_search.shape[0] / scale)))
-    if hog_channel == 'ALL':
-        ch1 = img_search[:, :, 0]
-        ch2 = img_search[:, :, 1]
-        ch3 = img_search[:, :, 2]
 
-        # Compute individual channel HOG features for the entire image
-        hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
-        hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
-        hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
-    else:
-        ch1 = img_search[:, :, hog_channel]
-        hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    ch1 = img_search[:, :, 0]
+    ch2 = img_search[:, :, 1]
+    ch3 = img_search[:, :, 2]
+    # Compute individual channel HOG features for the entire image
+    hog1 = get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog2 = get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+    hog3 = get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
 
     # Define blocks in image in x and y
     nxblocks = (ch1.shape[1] // pix_per_cell) - cell_per_block + 1
@@ -97,6 +93,7 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
 
     if visualise == True:
         print(scale, x_start, x_stop, y_start, y_stop)
+
     # Initialize a list to append window positions to
     window_list = []
     for xb in range(nxsteps):
@@ -134,7 +131,6 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                 if visualise == True:
                     print('Confidence: ', svc.decision_function(test_features))
                 if svc.decision_function(test_features) > svc_conf_thresh:
-                    #print('Detected Confidence: ', svc.decision_function(test_features))
                     win_scaled = np.int(window * scale)
                     startx = np.int(xleft * scale) + x_start
                     starty = np.int(ytop * scale) + y_start
@@ -170,11 +166,12 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                 endx = startx + win_scaled
                 endy = starty + win_scaled
                 cv2.rectangle(img_local, (startx, starty),(endx, endy), colour_tuple, 3)
-
+                '''
+    '''
     if visualise == True and TEST_ON_VIDEO == False:
         plt.imshow(img_local)
-        plt.show()'''
-
+        plt.show()
+    '''
     return window_list
 
 def add_heatmap(heatmap, heat_thresh, boxes):
@@ -219,7 +216,7 @@ if __name__ == '__main__':
     # Scales to search for vehicle features in image
     scale_list = [2, 1.5, 1]
     # Number of previous frames over which detected windows are checked
-    n_prev_frames = 5
+    n_prev_frames = 15
     # Number of previously detected windows to store for heatmap
     n_prev_windows = len(scale_list)*n_prev_frames
     # List of detected windows over n_prev_frames
@@ -227,16 +224,18 @@ if __name__ == '__main__':
     # Heat map to combine detections over n_prev_frames
     img_heat_total = np.zeros((720,1280),dtype=np.float)
     # Region in x and y to search in slide_window based on scale
-    x_start_stop = [(300, 1280), (300, 1280), (300, 1280)]
-    y_start_stop = [(400, 700), (400, 560), (400, 464)]
+    x_start_stop = [(300, 1280), (400, 1280), (360, 1280)]
+    y_start_stop = [(400, 700), (400, 560), (400, 528)]
     # Overlap in cells per step x and y
-    cells_xstep_list = [2, 2, 2]
-    cells_ystep_list = [2, 2, 2]
+    cells_xstep_list = [2, 2, 4]
+    cells_ystep_list = [2, 2, 4]
 
     # Classifier confidence above which detection is true
-    svc_conf_thresh = 0.1
+    svc_conf_thresh = 1.0
+    # Label pattern for connected regions in heatmap
+    label_s = [[1, 1, 1],[1, 1, 1],[1, 1, 1]]
     # Minumum number of times a pixel is present in a bounding box set to accept detection
-    heat_thresh = 3
+    heat_thresh = 7
     # Load pre-trained SVM classifier model
     svc = joblib.load(svm_model_path)
     # Load pre-trained per-column scaler
@@ -248,7 +247,7 @@ if __name__ == '__main__':
 
     if TEST_ON_VIDEO == True:
         # Video is at 25 FPS
-        clip = VideoFileClip(video_input)
+        clip = VideoFileClip(video_input)#.subclip(40,50)
         clip_output = clip.fl_image(track_vehicles)  # NOTE: this function expects color images!!
         clip_output.write_videofile(video_output, audio=False)
     else:

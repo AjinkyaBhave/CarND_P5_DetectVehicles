@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 import glob
 import time
-import pickle
 from skimage.feature import hog
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
@@ -51,7 +50,6 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
 
 
 # Define a function to extract features from a list of images
-# Have this function call bin_spatial() and color_hist()
 def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
                      hist_bins=32, orient=9,
                      pix_per_cell=8, cell_per_block=2, hog_channel=0,
@@ -110,19 +108,19 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
 train_img_width  = 64       # Width of images in training dataset
 train_img_height = 64       # Height of images in training dataset
 color_space      = 'YUV'    # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-orient           = 11        # HOG orientations
+orient           = 11       # HOG orientations
 pix_per_cell     = 16       # HOG pixels per cell
 cell_per_block   = 2        # HOG cells per block
-hog_channel      = 'ALL'        # Can be 0, 1, 2, or "ALL"
+hog_channel      = 'ALL'    # Can be 0, 1, 2, or "ALL"
 spatial_size     = (16, 16) # Spatial binning dimensions
 hist_bins        = 16       # Number of histogram bins
 use_spatial      = False    # Spatial features on or off
-use_hist         = False     # Histogram features on or off
+use_hist         = False    # Histogram features on or off
 use_hog          = True     # HOG features on or off
-vehicles_dir     = './dataset/vehicles'
-non_vehicles_dir = './dataset/non-vehicles'
-svm_model_path   = './svm_model.pkl'
-scaler_model_path= './scaler_model.pkl'
+vehicles_dir     = './dataset/vehicles'     # Vehicle training images directory
+non_vehicles_dir = './dataset/non-vehicles' # Non-vehicle training images directory
+svm_model_path   = './svm_model.pkl'        # Trained classifier saved model
+scaler_model_path= './scaler_model.pkl'     # Trained scaler model for classifier
 
 if __name__ == '__main__':
     # Create empty list to store car image names
@@ -186,7 +184,7 @@ if __name__ == '__main__':
     # Check the score of the SVC
     print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
 
-     # Save classifier for later use
+    # Save classifier for later use
     joblib.dump(svc, svm_model_path)
     joblib.dump(X_scaler, scaler_model_path)
     print('SVM and Scaler model saved')
