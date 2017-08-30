@@ -253,7 +253,7 @@ if __name__ == '__main__':
 
     if TEST_ON_VIDEO == True:
         # Video is at 25 FPS
-        clip = VideoFileClip(video_input).subclip(40,50)
+        clip = VideoFileClip(video_input)#.subclip(40,50)
         clip_output = clip.fl_image(track_vehicles)  # NOTE: this function expects color images!!
         clip_output.write_videofile(video_output, audio=False)
     else:
