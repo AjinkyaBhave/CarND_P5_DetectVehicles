@@ -45,7 +45,7 @@ I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an 
 
 ![Training Images][image1]
 
-I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I tested random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
+I then explored different color spaces and different `skimage.feature.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I tested random images from each of the two classes and displayed them to get a feel for what the `skimage.feature.hog()` output looks like.
 
 Here is an example using the final selection of all channels of the `YUV` color space and HOG parameters of `orientations=11`, `pixels_per_cell=(16, 16)` and `cells_per_block=(2, 2)`:
 
@@ -56,7 +56,7 @@ Here is an example using the final selection of all channels of the `YUV` color 
 
 I tried various combinations of parameters before finalising on the ones given above. I first started with the LAB colour space with 9 bins, 6 pixels per cell, 3 cells per block. This was one of the recommended configurations in the Dalal and Triggs (CVPR 2005) paper. The LAB space is an opponent colour space, which allows the HOG features to encode some colour information along with shape information. However, I found that the feature descriptor size was 15552, took a long time to train, and was slow when predicting a single image. 
 
-So I experimented with balancing the feature size with the training accuracy, trying various combinations, till I froze the hyper-parameters given above. Te final feature vector size was 1188, which was a good balance between size, prediction accuracy, and computation speed. I found the YUV space to give a ~1.5% better classification performance compared to LAB. Augmenting the HOG features with colour histograms did not improve the classifier performance by an appreciable amount, compared to the feature vector size increase.Some of the hyper-parameter tuning results are shown in the figure below.
+So I experimented with balancing the feature size with the training accuracy, trying various combinations, till I froze the hyper-parameters given above. The final feature vector size was 1188, which was a good balance between size, prediction accuracy, and computation speed. I found the YUV space to give a ~1.5% better classification performance compared to LAB. Augmenting the HOG features with colour histograms did not improve the classifier performance by an appreciable amount, compared to the feature vector size increase. Some of the hyper-parameter tuning results are shown in the figure below.
 
 ![Hyper-parameter Search][image3]
 
@@ -64,7 +64,7 @@ The parameters are defined in `classify_vehicles.py`(lines 108 to 114)
 
 ####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using `LinearSVC()` with a `C` regularisation parameter of 0.01 and test set of 20% of the total examples. The code is in `classify_vehicles.py` (lines 126 to 195). I tuned `C` using `GridSearchCV` (lines 178-179). I briefly experimented with the RBF kernel but finally settled on a linear SVM, given the speed of prediction and good final accuracy of 99.4% on the supplied project dataset (GTI and KITTI). Using a smaller `C` value allows the classifier to mis-classify some training examples to allow better generalisation on the test set. When I set `C` to 1 or above, I was getting a lower test accuracy, as expected. I have also saved the classifier and the scaler models to disk at the end of the training (lines 188-189), so I can re-use them in the vehicle detection phase.
+I trained a linear SVM using `LinearSVC()` with a `C` regularisation parameter of 0.01 and test set of 20% of the total examples. The code is in `classify_vehicles.py` (lines 126 to 195). I tuned `C` using `GridSearchCV` (lines 178-179). I briefly experimented with the RBF kernel but finally settled on a linear SVM, given the speed of prediction and good final accuracy of 99% on the supplied project dataset (GTI and KITTI). Using a smaller `C` value allows the classifier to mis-classify some training examples to allow better generalisation on the test set. When I set `C` to 1 or above, I was getting a lower test accuracy, as expected. I have also saved the classifier and the scaler models to disk at the end of the training (lines 188-189), so I can re-use them in the vehicle detection phase.
 
 ###Sliding Window Search
 
