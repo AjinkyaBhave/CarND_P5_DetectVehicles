@@ -6,7 +6,7 @@ from collections import deque
 from moviepy.editor import VideoFileClip
 from classify_vehicles import *
 
-def track_vehicles(img, visualise=False):
+def track_vehicles(img, visualise=True):
     # Image copy to draw detected vehicle boxes after heat maps
     img_draw = np.copy(img)
     # Image copy to draw detected vehicle boxes before heat maps
@@ -20,30 +20,38 @@ def track_vehicles(img, visualise=False):
     # image you are searching is a .jpg (scaled 0 to 255)
     # image = image.astype(np.float32)/255
 
+    # Calculate processing time per frame
     t1 = time.time()
     for i, scale in enumerate(scale_list):
+        # Apply image search region and window overlap for current scale
         x_start = x_start_stop[i][0]
         x_stop  = x_start_stop[i][1]
         y_start = y_start_stop[i][0]
         y_stop  = y_start_stop[i][1]
         cells_per_xstep = cells_xstep_list[i]
         cells_per_ystep = cells_ystep_list[i]
-
+        # Store detected windows for current scale
         detected_windows = find_vehicles(img, scale, cells_per_xstep, cells_per_ystep,
                                          x_start, x_stop, y_start, y_stop, visualise=visualise  )
+        # Add windows from each scale to final list for current image
         all_detected_windows.extend(detected_windows)
 
+    # Remove windows of oldest frame if queue is full
     if len(prev_detected_windows) == n_prev_windows:
         prev_detected_windows.popleft()
+    # Add detected windows in current image to total windows list
     prev_detected_windows.extend(all_detected_windows)
+    # Calculate heatmap over n_prev_windows
     img_heat=add_heatmap(img_heat,heat_thresh, prev_detected_windows)
-    #img_heat_total = img_heat_total and img_heat
     # Zero out pixels below the threshold
     img_heat[img_heat < heat_thresh] = 0
+    # Calculate continuous region for each detected vehicle and number of detected vehicles
     labels = label(img_heat)
 
     t2 = time.time()
+    # Draw bounding boxes calculated from heatmap over n_prev_frames
     img_draw  = draw_labeled_boxes(img_draw, labels)
+    # Draw all bounding boxes detected in current frame for visualisation
     img_boxes = draw_boxes(img_boxes, all_detected_windows)
 
     if visualise == True:
@@ -52,10 +60,10 @@ def track_vehicles(img, visualise=False):
         fig = plt.figure()
         plt.subplot(131)
         plt.imshow(img_boxes)
-        plt.title('Car Boxes')
+        plt.title('Bounding Boxes')
         plt.subplot(132)
         plt.imshow(img_draw)
-        plt.title('Car Positions')
+        plt.title('Detected Cars')
         plt.subplot(133)
         plt.imshow(img_heat, cmap='hot')
         plt.title('Heat Map')
@@ -69,7 +77,6 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
     # Convert image to colour space used in SVM classifier training
     img_conv = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
     img_search = img_conv[y_start:y_stop, x_start:x_stop, :]
-    img_local = np.copy(img)
     img_search = cv2.resize(img_search, (np.int(img_search.shape[1] / scale),
                                              np.int(img_search.shape[0] / scale)))
 
@@ -151,7 +158,8 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                         plt.imshow(img_local)
                         plt.show()
                     '''
-            if visualise == True and TEST_ON_VIDEO == False:
+            '''if visualise == True and TEST_ON_VIDEO == False:
+                img_local = np.copy(img)
                 if scale == 3:
                     colour_tuple = (255, 0, 0)
                 elif scale == 2:
@@ -166,12 +174,12 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                 endx = startx + win_scaled
                 endy = starty + win_scaled
                 cv2.rectangle(img_local, (startx, starty),(endx, endy), colour_tuple, 2)
+            '''
 
-
-    if visualise == True and TEST_ON_VIDEO == False:
+    '''if visualise == True and TEST_ON_VIDEO == False:
         plt.imshow(img_local)
         plt.show()
-
+    '''
     return window_list
 
 def add_heatmap(heatmap, heat_thresh, boxes):
@@ -243,11 +251,11 @@ if __name__ == '__main__':
     print('Load SVM and Scaler')
 
     # Run on video file if true else run on test images
-    TEST_ON_VIDEO = False
+    TEST_ON_VIDEO = True
 
     if TEST_ON_VIDEO == True:
         # Video is at 25 FPS
-        clip = VideoFileClip(video_input)#.subclip(40,50)
+        clip = VideoFileClip(video_input).subclip(40,50)
         clip_output = clip.fl_image(track_vehicles)  # NOTE: this function expects color images!!
         clip_output.write_videofile(video_output, audio=False)
     else:

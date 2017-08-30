@@ -19,7 +19,7 @@ The goals / steps of this project are the following:
 [image4]: ./output_images/Sliding_Window_2.jpg
 [image5]: ./output_images/Sliding_Window_1.5.jpg
 [image6]: ./output_images/Sliding_Window_1.jpg
-[image7]: ./output_images/output_bboxes.png
+[image7]: ./output_images/Vehicle_Detection_Pipeline.jpg
 [video1]: ./project_video_output.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
@@ -69,7 +69,7 @@ I trained a linear SVM using `LinearSVC()` with a `C` regularisation parameter o
 
 ####1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-The code to slide windows and subsample the image for HOG features is modified from `find_cars()` given in the lessons. It is implemented in `detect_vehicles.py` (lines 68 to 175). The changes are related to optimising the code to use only HOG features, adding visualisation for debugging, and checking for the classifier confidence before accepting a detection as valid (line 133).
+The code to slide windows and subsample the image for HOG features is modified from `find_cars()` given in the lessons. It is implemented in `detect_vehicles.py` (lines 76 to 183). The changes are related to optimising the code to use only HOG features, adding visualisation for debugging, and checking for the classifier confidence before accepting a detection as valid (line 133).
 
 I experimented with scales between 3 to 1 and finally settled on [2, 1.5, 1] as the three scales for the sliding windows. I applied the scales from the lower to the upper parts of the image, since I do not expect large cars far away from the camera. I chose the overlap after manually looking at the video over multiple iterations to see which combination gives the most reliable detections at each scale. I also chose different overlaps in the x and y directions for each scale: [75%, 75%, 50%]. This helps to minimise the computation time while detecting images, since the image size to search over is reduced. The final parameters for the sliding windows are defined in lines 217 to 231. The search regions for each of the scales are shown in the images below.
 
@@ -82,9 +82,12 @@ I experimented with scales between 3 to 1 and finally settled on [2, 1.5, 1] as 
 
 ####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+Ultimately I searched on three scales using YUV 3-channel HOG features, which provided the required accuracy. I chose the image search region and overlap for each of the scales in a way that reduces the search space. This is more efficient than naively searching the entire bottom image for all scales (large car regions appear near the bottom while far-away/smaller car regions appear near the middle of the image). I also tuned the window overlap for each scale after running the pipeline over multiple test images. Here are some example images which show how the bounding boxes and heatmap evolve over multiple frames:
 
-![alt text][image4]
+![Vehicle Detection Pipeline][image7]
+
+The first row shows the bounding boxes detected. However, there is no vehicle detected because the heatmap threshold is calculated over multiple frames. So there is no detection in the first frame. The second row shows the output after three frames. The two vehicles are now detected and the heatmap correspondingly shows the region of the accumulated detections over previous frames. The third row shows the stable detection state, where the heatmap is now maximised and the two vehicles are strongly detected. Notice that the bounding box of the white car is now more accurate compared to the previous row because of added information over the previous time steps.
+
 ---
 
 ### Video Implementation
