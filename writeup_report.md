@@ -20,6 +20,7 @@ The goals / steps of this project are the following:
 [image5]: ./output_images/Sliding_Window_1.5.jpg
 [image6]: ./output_images/Sliding_Window_1.jpg
 [image7]: ./output_images/Vehicle_Detection_Pipeline.jpg
+[image8]: ./output_images/False_Positive_Window.jpg
 [video1]: ./project_video_output.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
@@ -86,7 +87,7 @@ Ultimately I searched on three scales using YUV 3-channel HOG features, which pr
 
 ![Vehicle Detection Pipeline][image7]
 
-The first row shows the bounding boxes detected. However, there is no vehicle detected because the heatmap threshold is calculated over multiple frames. So there is no detection in the first frame. The second row shows the output after three frames. The two vehicles are now detected and the heatmap correspondingly shows the region of the accumulated detections over previous frames. The third row shows the stable detection state, where the heatmap is now maximised and the two vehicles are strongly detected. Notice that the bounding box of the white car is now more accurate compared to the previous row because of added information over the previous time steps.
+The first row shows the bounding boxes detected. However, there is no vehicle detected because the heatmap threshold is not reached yet, since it is calculated over multiple frames. So there is no detection in the first frame. The second row shows the output after three frames. The two vehicles are now detected and the heatmap correspondingly shows the region of the accumulated detections over previous frames. The third row shows the final frame in the series. where the heatmap is now maximised, and the two vehicles are strongly detected. Notice that the bounding box of the white car is now more accurate compared to the previous row because of added information over the previous time steps.
 
 ---
 
@@ -98,21 +99,13 @@ Here's a [link to my video result](./project_video_output.mp4)
 
 ####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
+To combine the overlapping bounding boxes obtained from detection at multiple scales, I used the #heatmap# approach outlined in the lectures. I recorded the window coordinates of positive detections in each frame of the video.  From the positive detections, I created a heatmap and then thresholded that map to identify vehicle positions. The threshold is tuned assuming aggregation over multiple frames. I used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap, as suggested in the lesson.  I  assumed each blob corresponded to a unique vehicle.  I constructed bounding boxes to cover the area of each blob detected. The code is in `track_vehicles()` (lines 44 to 49) and the functions referenced there. Since they are identical to the code snippets given in the lecture, I will not describe them in more detail here. 
+ 
+My approach to filtering false positives is based on two checks. The first is to check the confidence of the classifier prediction and reject it if it is below a threshold. This is implemented in `find_vehicles()` (line 140). The value of `svc_conf_thresh` was obtained after analysing the return value of `svc.decision_function` over a large number of detections at all scales over multiple images in the video. The decision function calculates the distance of the test feature from the SVM margin. The more confident the classifier is, the farther the test point is from the margin, and the larger is the return value. Since the value was close to 1 in most cases of good detection, I used this as the value to check against (line 243) and to balance rejecting weaker detections vs. allowing too many false positives.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+The second check is to aggregate the window detections over a series of images, rather than on a single image. This suppresses any spurious, transient detections to be eliminated over time. By empirically defining a threshold for the heat map (line 244), I was able to eliminate the false positives that popped up earlier in the pipeline. An example false positive, which was eliminated with this approach, is shown below:
 
-### Here are six frames and their corresponding heatmaps:
-
-![alt text][image5]
-
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
-
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
-
-
+![False Detection][image8]
 
 ---
 
