@@ -14,8 +14,8 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 [image1]: ./output_images/Training_Images.jpg
-[image2]: ./output_images/HOG_example.jpg
-[image3]: ./output_images/sliding_windows.jpg
+[image2]: ./output_images/HOG_Features.png
+[image3]: ./output_images/SVM_HyperParam_Results.jpg
 [image4]: ./output_images/sliding_window.jpg
 [image5]: ./output_images/bboxes_and_heat.png
 [image6]: ./output_images/labels_map.png
@@ -38,26 +38,32 @@ This document. The code is organised into two files:
 
 ####1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in `classify_vehicles.py`(lines #12 through #29)
+The code for this step is contained in `classify_vehicles.py`(lines 12 to 29)
 
 I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example of one of each of the `vehicle` and `non-vehicle` classes:
 
 ![Training Images][image1]
 
-I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
+I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I tested random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
 
-Here is an example using the `YCrCb` color space and HOG parameters of `orientations=8`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`:
+Here is an example using the final selection of all channels of the `YUV` color space and HOG parameters of `orientations=11`, `pixels_per_cell=(16, 16)` and `cells_per_block=(2, 2)`:
 
 
-![alt text][image2]
+![HOG Features][image2]
 
 ####2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters and...
+I tried various combinations of parameters before finalising on the ones given above. I first started with the LAB colour space with 9 bins, 6 pixels per cell, 3 cells per block. This was one of the recommended configurations in the Dalal and Triggs (CVPR 2005) paper. The LAB space is an opponent colour space, which allows the HOG features to encode some colour information along with shape information. However, I found that the feature descriptor size was 15552, took a long time to train, and was slow when predicting a single image. 
+
+So I experimented with balancing the feature size with the training accuracy, trying various combinations, till I froze the hyper-parameters given above. Te final feature vector size was 1188, which was a good balance between size, prediction accuracy, and computation speed. I found the YUV space to give a ~1.5% better classification performance compared to LAB. Augmenting the HOG features with colour histograms did not improve the classifier performance by an appreciable amount, compared to the feature vector size increase.Some of the hyper-parameter tuning results are shown in the figure below.
+
+![Hyper-parameter Search][image3]
+
+The parameters are defined in `classify_vehicles.py`(lines 108 to 114)
 
 ####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using...
+I trained a linear SVM using `LinearSVC()` with a `C` regularisation parameter of 0.01. The code is in `classify_vehicles.py` (lines 126 to 195). I tuned `C` using `GridSearchCV` (lines 178-179). I briefly experimented with the RBF kernel but finally settled on a linear SVM, given the speed of prediction and good accuracy of 99.4% on the supplied project dataset (GTI and KITTI). Using a smaller `C` value allows the classifier to mis-classify some training examples to allow better generalisation on the test set. When I set `C` to 1 or above, I was getting a lower test accuracy, as expected.
 
 ###Sliding Window Search
 
@@ -77,7 +83,7 @@ Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spat
 ### Video Implementation
 
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./project_video_output.mp4)
 
 
 ####2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.

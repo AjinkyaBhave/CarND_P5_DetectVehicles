@@ -176,7 +176,7 @@ if __name__ == '__main__':
     t = time.time()
     #parameters = {'kernel': ('linear', 'rbf'), 'C': range(1, 11)}
     #parameters = {'C': np.linspace(0.01,2, num = 20)}
-    #svc = GridSearchCV(clf, parameters)
+    #svc = GridSearchCV(svc, parameters)
     svc.fit(X_train, y_train)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to train SVC...')
