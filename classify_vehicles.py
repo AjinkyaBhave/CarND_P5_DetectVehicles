@@ -61,22 +61,22 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
         file_features = []
         # Read in each one by one
         img = cv2.imread(file)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # apply color conversion if other than 'RGB'
-        if color_space != 'RGB':
-            if color_space == 'Lab':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2Lab)
-            elif color_space == 'YUV':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-            elif color_space == 'YCrCb':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-            elif color_space == 'HSV':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-            elif color_space == 'LUV':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
-            elif color_space == 'HLS':
-                feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
 
+        # apply color conversion if other than 'RGB'
+        if color_space == 'RGB':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        elif color_space == 'Lab':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)
+        elif color_space == 'YUV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+        elif color_space == 'YCrCb':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+        elif color_space == 'HSV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        elif color_space == 'LUV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2LUV)
+        elif color_space == 'HLS':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
         else:
             feature_image = np.copy(img)
 

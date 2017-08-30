@@ -138,7 +138,7 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                     endy = starty + win_scaled
                     # Append window position to list
                     window_list.append(((startx, starty), (endx, endy)))
-                    if visualise == True:
+                    '''if visualise == True:
                         if scale == 3:
                             colour_tuple = (255, 0, 0)
                         elif scale == 2:
@@ -150,8 +150,8 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                         cv2.rectangle(img_local, (startx, starty), (endx, endy), colour_tuple, 2)
                         plt.imshow(img_local)
                         plt.show()
-
-            '''if visualise == True and TEST_ON_VIDEO == False:
+                    '''
+            if visualise == True and TEST_ON_VIDEO == False:
                 if scale == 3:
                     colour_tuple = (255, 0, 0)
                 elif scale == 2:
@@ -165,13 +165,13 @@ def find_vehicles(img, scale, cells_per_xstep, cells_per_ystep, x_start, x_stop,
                 starty = np.int(ytop * scale) + y_start
                 endx = startx + win_scaled
                 endy = starty + win_scaled
-                cv2.rectangle(img_local, (startx, starty),(endx, endy), colour_tuple, 3)
-                '''
-    '''
+                cv2.rectangle(img_local, (startx, starty),(endx, endy), colour_tuple, 2)
+
+
     if visualise == True and TEST_ON_VIDEO == False:
         plt.imshow(img_local)
         plt.show()
-    '''
+
     return window_list
 
 def add_heatmap(heatmap, heat_thresh, boxes):
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     print('Load SVM and Scaler')
 
     # Run on video file if true else run on test images
-    TEST_ON_VIDEO = True
+    TEST_ON_VIDEO = False
 
     if TEST_ON_VIDEO == True:
         # Video is at 25 FPS

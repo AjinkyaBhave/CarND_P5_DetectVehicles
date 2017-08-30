@@ -14,11 +14,11 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 [image1]: ./output_images/Training_Images.jpg
-[image2]: ./output_images/HOG_Features.png
+[image2]: ./output_images/HOG_Features.jpg
 [image3]: ./output_images/SVM_HyperParam_Results.jpg
-[image4]: ./output_images/sliding_window.jpg
-[image5]: ./output_images/bboxes_and_heat.png
-[image6]: ./output_images/labels_map.png
+[image4]: ./output_images/Sliding_Window_2.jpg
+[image5]: ./output_images/Sliding_Window_1.5.jpg
+[image6]: ./output_images/Sliding_Window_1.jpg
 [image7]: ./output_images/output_bboxes.png
 [video1]: ./project_video_output.mp4
 
@@ -63,15 +63,22 @@ The parameters are defined in `classify_vehicles.py`(lines 108 to 114)
 
 ####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using `LinearSVC()` with a `C` regularisation parameter of 0.01. The code is in `classify_vehicles.py` (lines 126 to 195). I tuned `C` using `GridSearchCV` (lines 178-179). I briefly experimented with the RBF kernel but finally settled on a linear SVM, given the speed of prediction and good accuracy of 99.4% on the supplied project dataset (GTI and KITTI). Using a smaller `C` value allows the classifier to mis-classify some training examples to allow better generalisation on the test set. When I set `C` to 1 or above, I was getting a lower test accuracy, as expected.
+I trained a linear SVM using `LinearSVC()` with a `C` regularisation parameter of 0.01 and test set of 20% of the total examples. The code is in `classify_vehicles.py` (lines 126 to 195). I tuned `C` using `GridSearchCV` (lines 178-179). I briefly experimented with the RBF kernel but finally settled on a linear SVM, given the speed of prediction and good final accuracy of 99.4% on the supplied project dataset (GTI and KITTI). Using a smaller `C` value allows the classifier to mis-classify some training examples to allow better generalisation on the test set. When I set `C` to 1 or above, I was getting a lower test accuracy, as expected. I have also saved the classifier and the scaler models to disk at the end of the training (lines 188-189), so I can re-use them in the vehicle detection phase.
 
 ###Sliding Window Search
 
 ####1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+The code to slide windows and subsample the image for HOG features is modified from `find_cars()` given in the lessons. It is implemented in `detect_vehicles.py` (lines 68 to 175). The changes are related to optimising the code to use only HOG features, adding visualisation for debugging, and checking for the classifier confidence before accepting a detection as valid (line 133).
 
-![alt text][image3]
+I experimented with scales between 3 to 1 and finally settled on [2, 1.5, 1] as the three scales for the sliding windows. I applied the scales from the lower to the upper parts of the image, since I do not expect large cars far away from the camera. I chose the overlap after manually looking at the video over multiple iterations to see which combination gives the most reliable detections at each scale. I also chose different overlaps in the x and y directions for each scale: [75%, 75%, 50%]. This helps to minimise the computation time while detecting images, since the image size to search over is reduced. The final parameters for the sliding windows are defined in lines 217 to 231. The search regions for each of the scales are shown in the images below.
+
+![Sliding Windows: Scale 2][image4]
+
+![Sliding Windows: Scale 1.5][image5]
+
+![Sliding Windows: Scale 1][image6]
+
 
 ####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
